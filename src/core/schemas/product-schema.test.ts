@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { productSchema } from './product.schema';
+import { productSchema } from './product-schema';
 
 describe('Product Schema Validation', () => {
   const validProduct = {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useRoleRedirect } from './useRoleRedirect';
+import { useRoleRedirect } from './use-role-redirect';
 import { useAuth } from '@/application/contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 
