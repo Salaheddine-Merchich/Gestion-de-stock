@@ -24,7 +24,7 @@ jobs:
         run: npm install
         
       - name: Build Application
-        run: npm run build
+        run: npm run build -- --mode test
         
       - name: Run Vitest
         run: npx vitest run
@@ -59,7 +59,7 @@ jobs:
         run: npm install
         
       - name: Build Application
-        run: npm run build
+        run: npm run build -- --mode test
         
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium

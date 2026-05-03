@@ -34,6 +34,11 @@ const server = http.createServer((req, res) => {
 
   res.setHeader('Content-Type', 'application/json');
 
+  // Helper to get token role
+  const authHeader = req.headers['authorization'] || '';
+  const isAdmin = authHeader.includes('admin-token');
+  const isClient = authHeader.includes('client-token');
+
   // 1. Auth Endpoint
   if (req.url.includes('/auth/v1/token')) {
     let body = '';
@@ -49,31 +54,43 @@ const server = http.createServer((req, res) => {
       } else {
         res.writeHead(200);
         const role = data.email.includes('admin') ? 'admin' : 'client';
+        const userId = role === 'admin' ? 'admin-uuid' : 'client-uuid';
         res.end(JSON.stringify({
           access_token: `valid-${role}-token`,
           token_type: 'bearer',
-          user: { id: `${role}-uuid`, email: data.email, user_metadata: { full_name: 'User ' + role } }
+          expires_in: 3600,
+          user: { 
+            id: userId, 
+            email: data.email, 
+            aud: 'authenticated',
+            role: 'authenticated',
+            user_metadata: { full_name: 'Test ' + role },
+            app_metadata: { provider: 'email', providers: ['email'] }
+          }
         }));
       }
     });
     return;
   }
 
-  // Check Token for other endpoints
-  const authHeader = req.headers['authorization'];
-  const isAdmin = authHeader === 'Bearer valid-admin-token';
-  const isClient = authHeader === 'Bearer valid-client-token';
-
-  // 2. Profiles Endpoint (Essential for RBAC and Layouts)
+  // 2. Profiles Endpoint (RBAC)
   if (req.url.includes('/rest/v1/profiles')) {
-    const role = isAdmin ? 'admin' : 'client';
-    const userId = isAdmin ? 'admin-uuid' : 'client-uuid';
+    // Determine role from URL query or token
+    let role = 'client';
+    let userId = 'client-uuid';
+    
+    if (req.url.includes('admin-uuid') || isAdmin) {
+      role = 'admin';
+      userId = 'admin-uuid';
+    }
+
     res.writeHead(200);
-    // Return a single profile if requested or a list
-    if (req.url.includes('single')) {
-       res.end(JSON.stringify({ user_id: userId, role: role, full_name: 'Test ' + role }));
+    const profile = { user_id: userId, role: role, full_name: 'Test ' + role, id: 'prof-' + userId };
+    
+    if (req.headers['prefer']?.includes('return=minimal') || req.url.includes('single')) {
+       res.end(JSON.stringify(profile));
     } else {
-       res.end(JSON.stringify([{ user_id: userId, role: role, full_name: 'Test ' + role }]));
+       res.end(JSON.stringify([profile]));
     }
     return;
   }
@@ -84,6 +101,11 @@ const server = http.createServer((req, res) => {
       res.writeHead(200);
       res.end(JSON.stringify(products.map(p => ({ ...p, categories: categories.find(c => c.id === p.category_id) }))));
     } else if (req.method === 'POST') {
+      if (!isAdmin) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: 'Unauthorized', message: 'Admin access required' }));
+        return;
+      }
       let body = '';
       req.on('data', chunk => { body += chunk.toString(); });
       req.on('end', () => {
@@ -93,6 +115,11 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify([newProd]));
       });
     } else if (req.method === 'PATCH' || req.method === 'DELETE') {
+      if (!isAdmin) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
       res.writeHead(204);
       res.end();
     }
@@ -118,10 +145,10 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 6. Health Check (Root)
+  // 6. Health Check
   if (req.url === '/' || req.url === '/health') {
     res.writeHead(200);
-    res.end(JSON.stringify({ status: 'ok', message: 'Mock Server is running' }));
+    res.end(JSON.stringify({ status: 'ok' }));
     return;
   }
 
