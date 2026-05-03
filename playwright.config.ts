@@ -92,13 +92,27 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       testMatch: '**/auth/**/*.spec.ts',
     },
+
+    /* ── 6. API tests ── */
+    {
+      name: 'api-tests',
+      testMatch: '**/api/**/*.spec.ts',
+    },
   ],
 
-  /* Start Vite dev server automatically before tests */
-  webServer: {
-    command: 'npx vite --port 8080',
-    url: 'http://localhost:8080',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  /* Start Vite dev server and API mock server automatically before tests */
+  webServer: [
+    {
+      command: 'npx vite --port 8080',
+      url: 'http://localhost:8080',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: 'node tests/api/mock-server.cjs',
+      url: 'http://localhost:3001',
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    }
+  ],
 });

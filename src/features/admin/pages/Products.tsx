@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/infrastructure/api/supabase';
 import { Product, Category } from '@/core/types/database';
 import { Button } from '@/presentation/components/ui/enhanced-button';
@@ -24,6 +24,16 @@ import { Textarea } from '@/presentation/components/ui/textarea';
 import { Label } from '@/presentation/components/ui/label';
 import { Plus, Edit, Trash2, Package, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/presentation/components/ui/alert-dialog";
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -32,6 +42,8 @@ export default function AdminProducts() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -152,21 +164,25 @@ export default function AdminProducts() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (productId: string) => {
-    if (!confirm('ÃŠtes-vous sûr de vouloir supprimer ce produit ?')) return;
+  const handleDelete = async () => {
+    if (!productToDelete) return;
 
+    setIsDeleting(true);
     try {
       const { error } = await supabase
         .from('products')
         .delete()
-        .eq('id', productId);
+        .eq('id', productToDelete.id);
 
       if (error) throw error;
       toast.success('Produit supprimé avec succès');
+      setProductToDelete(null);
       fetchProducts();
     } catch (error) {
       console.error('Error deleting product:', error);
       toast.error('Erreur lors de la suppression');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -386,7 +402,7 @@ export default function AdminProducts() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleDelete(product.id)}
+                    onClick={() => setProductToDelete(product)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -396,6 +412,30 @@ export default function AdminProducts() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!productToDelete} onOpenChange={(open) => !open && setProductToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. Le produit <strong>{productToDelete?.name}</strong> sera définitivement supprimé du catalogue.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Suppression...' : 'Supprimer'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

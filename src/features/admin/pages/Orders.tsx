@@ -1,10 +1,20 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/infrastructure/api/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/presentation/components/ui/card';
 import { Badge } from '@/presentation/components/ui/badge';
 import { Button } from '@/presentation/components/ui/enhanced-button';
 import { Package, Check, X, Eye, Clock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/presentation/components/ui/alert-dialog";
 
 interface OrderWithItems {
   id: string;
@@ -33,7 +43,8 @@ export default function AdminOrders() {
   const [orders, setOrders] = useState<OrderWithItems[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
-  const [deletingOrder, setDeletingOrder] = useState<string | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<OrderWithItems | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     // Always fetch fresh data when component mounts or when coming back to this page
@@ -135,18 +146,16 @@ export default function AdminOrders() {
     }
   };
 
-  const deleteOrder = async (orderId: string) => {
-    if (!confirm('ÃŠtes-vous sûr de vouloir supprimer définitivement cette commande ? Cette action est irréversible.')) {
-      return;
-    }
+  const deleteOrder = async () => {
+    if (!orderToDelete) return;
 
-    setDeletingOrder(orderId);
+    setIsDeleting(true);
     try {
       // First delete all order items (foreign key constraint)
       const { error: itemsError } = await supabase
         .from('order_items')
         .delete()
-        .eq('order_id', orderId);
+        .eq('order_id', orderToDelete.id);
 
       if (itemsError) throw itemsError;
 
@@ -154,17 +163,17 @@ export default function AdminOrders() {
       const { error: orderError } = await supabase
         .from('orders')
         .delete()
-        .eq('id', orderId);
+        .eq('id', orderToDelete.id);
 
       if (orderError) throw orderError;
 
       // Remove from local state immediately
-      setOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+      setOrders(prevOrders => prevOrders.filter(order => order.id !== orderToDelete.id));
       
       // Trigger a custom event to notify other components
       window.dispatchEvent(new CustomEvent('orderDeleted', { 
         detail: { 
-          orderId,
+          orderId: orderToDelete.id,
           timestamp: Date.now()
         } 
       }));
@@ -173,6 +182,7 @@ export default function AdminOrders() {
       window.dispatchEvent(new CustomEvent('orderDataChanged'));
       
       toast.success('Commande supprimée définitivement de Supabase');
+      setOrderToDelete(null);
       
       // Optionally refetch to ensure absolute consistency with database
       setTimeout(() => {
@@ -183,7 +193,7 @@ export default function AdminOrders() {
       console.error('Error deleting order from Supabase:', error);
       toast.error('Erreur lors de la suppression définitive');
     } finally {
-      setDeletingOrder(null);
+      setIsDeleting(false);
     }
   };
 
@@ -346,11 +356,10 @@ export default function AdminOrders() {
                     <Button
                       variant="destructive"
                       size="sm"
-                      onClick={() => deleteOrder(order.id)}
-                      disabled={deletingOrder === order.id}
+                      onClick={() => setOrderToDelete(order)}
                     >
                       <Trash2 className="h-4 w-4" />
-                      {deletingOrder === order.id ? 'Suppression...' : 'Supprimer définitivement'}
+                      Supprimer définitivement
                     </Button>
                   </div>
                 </div>
@@ -359,6 +368,30 @@ export default function AdminOrders() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!orderToDelete} onOpenChange={(open) => !open && setOrderToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer la commande ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. La commande <strong>#{orderToDelete?.id.slice(0, 8)}</strong> et tous ses articles seront définitivement supprimés de la base de données.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                deleteOrder();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Suppression...' : 'Supprimer'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

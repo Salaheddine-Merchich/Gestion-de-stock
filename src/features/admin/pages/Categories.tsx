@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/infrastructure/api/supabase';
 import { Category } from '@/core/types/database';
 import { Button } from '@/presentation/components/ui/enhanced-button';
@@ -15,6 +15,16 @@ import {
 import { Label } from '@/presentation/components/ui/label';
 import { Plus, Edit, Trash2, Tags, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/presentation/components/ui/alert-dialog";
 
 export default function AdminCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -22,6 +32,8 @@ export default function AdminCategories() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [formData, setFormData] = useState({ name: '' });
 
   useEffect(() => {
@@ -90,17 +102,19 @@ export default function AdminCategories() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (categoryId: string, categoryName: string) => {
-    if (!confirm(`ÃŠtes-vous sûr de vouloir supprimer la catégorie "${categoryName}" ?`)) return;
+  const handleDelete = async () => {
+    if (!categoryToDelete) return;
 
+    setIsDeleting(true);
     try {
       const { error } = await supabase
         .from('categories')
         .delete()
-        .eq('id', categoryId);
+        .eq('id', categoryToDelete.id);
 
       if (error) throw error;
       toast.success('Catégorie supprimée avec succès');
+      setCategoryToDelete(null);
       fetchCategories();
       
       // Notifier les autres composants que les catégories ont changé
@@ -108,6 +122,8 @@ export default function AdminCategories() {
     } catch (error) {
       console.error('Error deleting category:', error);
       toast.error('Erreur lors de la suppression');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -241,7 +257,7 @@ export default function AdminCategories() {
                   <Button
                     variant="destructive"
                     size="sm"
-                    onClick={() => handleDelete(category.id, category.name)}
+                    onClick={() => setCategoryToDelete(category)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -251,6 +267,30 @@ export default function AdminCategories() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. La catégorie <strong>{categoryToDelete?.name}</strong> sera définitivement supprimée. Les produits associés verront leur catégorie mise à jour.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Suppression...' : 'Supprimer'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

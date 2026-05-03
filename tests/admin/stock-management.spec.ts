@@ -292,14 +292,19 @@ test.describe('Admin — Gestion des Produits', () => {
       return;
     }
 
-    // Handle the window.confirm dialog (auto-accept)
-    page.on('dialog', dialog => dialog.accept());
-
     const initialCount = await productCards.count();
 
     // Click the trash icon button of the first product
     await page.locator('[class*="grid"] > div').first()
-      .getByRole('button').last().click(); // last button = destructive trash
+      .getByRole('button').last().click();
+
+    // The AlertDialog should appear
+    const alertDialog = page.getByRole('alertdialog');
+    await expect(alertDialog).toBeVisible();
+    await expect(alertDialog.getByRole('heading', { name: 'Êtes-vous sûr ?' })).toBeVisible();
+
+    // Click "Supprimer" in the AlertDialog
+    await alertDialog.getByRole('button', { name: 'Supprimer' }).click();
 
     // Toast confirmation
     await expectToast(page, 'Produit supprimé avec succès');
@@ -362,10 +367,16 @@ test.describe('Admin — Gestion des Catégories', () => {
     const cards = page.locator('[class*="grid"] > div');
     if (await cards.count() === 0) { test.skip(); return; }
 
-    page.on('dialog', dialog => dialog.accept());
     const initialCount = await cards.count();
 
     await cards.first().getByRole('button').last().click();
+
+    // The AlertDialog should appear
+    const alertDialog = page.getByRole('alertdialog');
+    await expect(alertDialog).toBeVisible();
+    
+    // Click "Supprimer" in the AlertDialog
+    await alertDialog.getByRole('button', { name: 'Supprimer' }).click();
 
     await expect(
       page.locator('[data-sonner-toaster]').getByText('Catégorie supprimée avec succès')

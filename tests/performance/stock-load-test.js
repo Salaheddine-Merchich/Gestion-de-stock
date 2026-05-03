@@ -20,7 +20,7 @@ export const options = {
 };
 
 const CONFIG = {
-  baseUrl: 'http://localhost:3000',
+  baseUrl: 'http://localhost:3001',
   apiKey: 'perf-test-key',
   auth: { email: 'admin@cosumar.test', password: 'Admin1234!' }
 };

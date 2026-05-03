@@ -1,0 +1,93 @@
+name: CI/CD Cosumar Validation
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # 1. Quality Assurance: Lint & Unit Tests
+  unit-tests:
+    name: Unit & Integration Tests (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run Vitest
+        run: npm run test
+        
+      - name: Run Coverage
+        run: npm run test:coverage
+        
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vitest-coverage
+          path: coverage/
+
+  # 2. End-to-End & API Tests
+  e2e-tests:
+    name: E2E & API Tests (Playwright)
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        
+      - name: Run Playwright Tests
+        run: npx playwright test
+        env:
+          CI: true
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          CLIENT_EMAIL: ${{ secrets.CLIENT_EMAIL }}
+          CLIENT_PASSWORD: ${{ secrets.CLIENT_PASSWORD }}
+          
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+
+  # 3. Performance Check
+  performance-tests:
+    name: Performance Stress Test (k6)
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+        
+      - name: Start Mock API Server
+        run: node tests/api/mock-server.cjs &
+        
+      - name: Run k6 Load Test
+        run: k6 run tests/performance/stock-load-test.js
+        env:
+          K6_STATSD_ENABLE: false

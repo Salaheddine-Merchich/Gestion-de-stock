@@ -14,7 +14,8 @@ Application de gestion de stock et de commandes développée dans le cadre d'un 
 - **Frontend** : React, TypeScript, Vite
 - **Styling** : Tailwind CSS, shadcn/ui
 - **Backend** : Supabase (Database & Auth)
-- **Tests** : Vitest (Unitaires/Intégration), Playwright (E2E), k6 (Performance)
+- **Tests** : Vitest (Unit/Integration), Playwright (E2E & API), k6 (Performance)
+- **DevOps** : GitHub Actions (CI/CD Pipeline)
 
 ## Installation et Lancement
 
