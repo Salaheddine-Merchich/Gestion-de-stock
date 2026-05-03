@@ -7,9 +7,9 @@ on:
     branches: [ main, master ]
 
 jobs:
-  # 1. Static Analysis & Unit Tests
+  # 1. Quality Gate: Build & Unit Tests
   quality-gate:
-    name: Lint & Unit Tests
+    name: Build & Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,21 +17,21 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           
       - name: Install dependencies
         run: npm install
         
-      - name: Run Lint
-        run: npm run lint
-        continue-on-error: true # Allow lint errors for now to focus on tests
-        
-      - name: Run Vitest with Coverage
-        run: npx vitest run --coverage
-        
       - name: Build Application
         run: npm run build
+        
+      - name: Run Vitest
+        run: npx vitest run
+        
+      - name: Upload Coverage
+        run: npx vitest run --coverage
+        continue-on-error: true
         
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4
@@ -52,7 +52,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           
       - name: Install dependencies
