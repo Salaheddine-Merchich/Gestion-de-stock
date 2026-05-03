@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 import { test as base, request, APIRequestContext } from '@playwright/test';
 import { API_CONFIG, API_HEADERS } from './api.config';
 

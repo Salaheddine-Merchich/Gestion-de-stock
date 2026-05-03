@@ -7,9 +7,9 @@ on:
     branches: [ main, master ]
 
 jobs:
-  # 1. Quality Assurance: Lint & Unit Tests
-  unit-tests:
-    name: Unit & Integration Tests (Vitest)
+  # 1. Static Analysis & Unit Tests
+  quality-gate:
+    name: Lint & Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,13 +21,17 @@ jobs:
           cache: 'npm'
           
       - name: Install dependencies
-        run: npm ci
+        run: npm install
         
-      - name: Run Vitest
-        run: npm run test
+      - name: Run Lint
+        run: npm run lint
+        continue-on-error: true # Allow lint errors for now to focus on tests
         
-      - name: Run Coverage
-        run: npm run test:coverage
+      - name: Run Vitest with Coverage
+        run: npx vitest run --coverage
+        
+      - name: Build Application
+        run: npm run build
         
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4
@@ -39,7 +43,7 @@ jobs:
   # 2. End-to-End & API Tests
   e2e-tests:
     name: E2E & API Tests (Playwright)
-    needs: unit-tests
+    needs: quality-gate
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -52,7 +56,7 @@ jobs:
           cache: 'npm'
           
       - name: Install dependencies
-        run: npm ci
+        run: npm install
         
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
@@ -76,7 +80,7 @@ jobs:
   # 3. Performance Check
   performance-tests:
     name: Performance Stress Test (k6)
-    needs: unit-tests
+    needs: quality-gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
