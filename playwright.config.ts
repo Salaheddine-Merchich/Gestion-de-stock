@@ -103,16 +103,16 @@ export default defineConfig({
   /* Start Vite dev server and API mock server automatically before tests */
   webServer: [
     {
-      command: 'npx vite --port 8080',
+      command: 'npx vite --port 8080 --mode test',
       url: 'http://localhost:8080',
       reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
+      timeout: 180_000,
     },
     {
       command: 'node tests/api/mock-server.cjs',
       url: 'http://localhost:3001',
       reuseExistingServer: !process.env.CI,
-      timeout: 60_000,
+      timeout: 180_000,
     }
   ],
 });

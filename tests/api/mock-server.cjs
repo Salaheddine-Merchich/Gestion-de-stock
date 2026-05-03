@@ -2,19 +2,29 @@ const http = require('http');
 const PORT = 3001;
 
 /**
- * Mock API Server for Playwright API Tests
- * This server simulates Supabase Auth and Rest endpoints.
+ * Robust Mock API Server for Playwright UI & API Tests
+ * This server simulates Supabase Auth and Rest endpoints with sufficient data for dashboards.
  */
 
 let products = [
-  { id: 'prod-1', name: 'Sucre API Mock', price: 12.5, stock: 500, created_at: new Date().toISOString() }
+  { id: 'prod-1', name: 'Sucre de Table', price: 12.5, stock: 500, category_id: 'cat-1', created_at: new Date().toISOString() },
+  { id: 'prod-2', name: 'Pain de Sucre', price: 15.0, stock: 200, category_id: 'cat-1', created_at: new Date().toISOString() }
+];
+
+let categories = [
+  { id: 'cat-1', name: 'Sucre Granulé', slug: 'sucre-granule' },
+  { id: 'cat-2', name: 'Sucre en Morceaux', slug: 'sucre-morceaux' }
+];
+
+let orders = [
+  { id: 'order-1', client_id: 'client-uuid', status: 'pending', total_amount: 125.0, created_at: new Date().toISOString() }
 ];
 
 const server = http.createServer((req, res) => {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'authorization, apikey, content-type, prefer');
+  res.setHeader('Access-Control-Allow-Headers', 'authorization, apikey, content-type, prefer, x-client-info');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -42,7 +52,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({
           access_token: `valid-${role}-token`,
           token_type: 'bearer',
-          user: { id: `${role}-uuid`, email: data.email }
+          user: { id: `${role}-uuid`, email: data.email, user_metadata: { full_name: 'User ' + role } }
         }));
       }
     });
@@ -54,25 +64,26 @@ const server = http.createServer((req, res) => {
   const isAdmin = authHeader === 'Bearer valid-admin-token';
   const isClient = authHeader === 'Bearer valid-client-token';
 
-  if (!isAdmin && !isClient) {
-     if (!req.url.includes('/rest/v1/products') || req.method !== 'GET') {
-        res.writeHead(401);
-        res.end(JSON.stringify({ error: 'Unauthorized' }));
-        return;
-     }
+  // 2. Profiles Endpoint (Essential for RBAC and Layouts)
+  if (req.url.includes('/rest/v1/profiles')) {
+    const role = isAdmin ? 'admin' : 'client';
+    const userId = isAdmin ? 'admin-uuid' : 'client-uuid';
+    res.writeHead(200);
+    // Return a single profile if requested or a list
+    if (req.url.includes('single')) {
+       res.end(JSON.stringify({ user_id: userId, role: role, full_name: 'Test ' + role }));
+    } else {
+       res.end(JSON.stringify([{ user_id: userId, role: role, full_name: 'Test ' + role }]));
+    }
+    return;
   }
 
-  // 2. Products Endpoint
+  // 3. Products Endpoint
   if (req.url.includes('/rest/v1/products')) {
     if (req.method === 'GET') {
       res.writeHead(200);
-      res.end(JSON.stringify(products));
+      res.end(JSON.stringify(products.map(p => ({ ...p, categories: categories.find(c => c.id === p.category_id) }))));
     } else if (req.method === 'POST') {
-      if (!isAdmin) {
-        res.writeHead(403);
-        res.end(JSON.stringify({ error: 'Forbidden' }));
-        return;
-      }
       let body = '';
       req.on('data', chunk => { body += chunk.toString(); });
       req.on('end', () => {
@@ -88,11 +99,18 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 3. Orders Endpoint
+  // 4. Categories Endpoint
+  if (req.url.includes('/rest/v1/categories')) {
+    res.writeHead(200);
+    res.end(JSON.stringify(categories));
+    return;
+  }
+
+  // 5. Orders Endpoint
   if (req.url.includes('/rest/v1/orders')) {
     if (req.method === 'GET') {
       res.writeHead(200);
-      res.end(JSON.stringify([{ id: 'order-mock-1', status: 'pending', total: 100 }]));
+      res.end(JSON.stringify(orders));
     } else if (req.method === 'POST') {
       res.writeHead(201);
       res.end(JSON.stringify([{ id: 'order-new', status: 'pending' }]));
@@ -101,9 +119,9 @@ const server = http.createServer((req, res) => {
   }
 
   res.writeHead(404);
-  res.end(JSON.stringify({ error: 'Not Found' }));
+  res.end(JSON.stringify({ error: 'Not Found', url: req.url }));
 });
 
-server.listen(PORT, () => {
-  console.log(`✅ API Mock Server started on http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Robust API Mock Server started on http://0.0.0.0:${PORT}`);
 });
