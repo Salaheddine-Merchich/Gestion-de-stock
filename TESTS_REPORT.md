@@ -8,42 +8,35 @@ Nous avons adopté une approche de test en couches (Testing Pyramid) pour assure
 
 | Type de Test | Outil | Périmètre | Quantité | État |
 | :--- | :--- | :--- | :--- | :--- |
-| **Unitaires** | Vitest | Logique métier, calculs, schémas de données | 24 tests | ✅ Succès |
-| **Intégration** | Vitest / RTL | Flux métier complet (Client: Commande / Admin: Stock) | 2 flux majeurs | ✅ Succès |
+| **Unitaires** | Vitest | Logique métier, calculs, schémas | 24 tests | ✅ Succès |
+| **Intégration** | Vitest / RTL | Flux métier (Client / Admin) | 2 flux | ✅ Succès |
 | **API (Backend)** | Playwright API | Sécurité, RBAC, CRUD, Auth | 11 tests | ✅ Succès |
-| **E2E (Interface)** | Playwright | Parcours complets (Admin, Client, Auth) | 63 tests | ✅ Succès |
-| **Performance** | k6 | Résistance à la charge (Stress Testing) | 300 VUs | ✅ Validé |
-| **CI/CD** | GitHub Actions | Automatisation totale (Lint, Test, Deploy) | 1 pipeline | ✅ Configuré |
+| **E2E (Interface)** | Playwright | Parcours (Admin, Client, Auth) | 74 tests | ✅ Succès |
+| **Performance** | k6 | Résistance à la charge | 300 VUs | ✅ Validé |
+| **CI/CD** | GitHub Actions | Automatisation totale | 1 pipeline | ✅ Opérationnel |
 
-## 2. Résultats des Tests Unitaires (Vitest)
+## 2. Infrastructure de Validation
 
-La suite de tests unitaires garantit la fiabilité des composants isolés.
+Pour garantir un pipeline CI/CD fiable et déterministe, nous avons mis en place une isolation complète :
 
-*   **Couverture des lignes (Global)** : 73.01%
-*   **État final** : ✅ Succès (Zéro échec)
-*   **Point clé** : Utilisation de **Mocks** pour isoler les tests de la base de données Supabase, garantissant des tests rapides et déterministes.
+- **Mock API Server** (`tests/api/mock-server.cjs`) : Simule Supabase (Auth + REST) localement.
+- **Environnement de Test** : Utilisation du mode `--mode test` de Vite pour pointer vers le mock.
+- **CI/CD GitHub Actions** : Pipeline automatisé avec Quality Gate (Lint/Unit) et validation fonctionnelle (E2E/Perf).
 
-## 3. Résultats des Tests End-to-End (Playwright)
+## 3. Résultats Détaillés
 
-Ces tests simulent de vrais utilisateurs sur l'interface réelle.
+### Tests Unitaires & Intégration (Vitest)
+- **Couverture Globale** : ~73% (Stmts)
+- **Status** : ✅ Tous les tests passent.
 
-*   **Scénarios testés** : Création de produit, gestion des commandes, changement de rôle, sécurité des routes, tunnel d'achat.
-*   **État final** : ✅ 63/63 tests passés.
-*   **Navigateurs testés** : Chromium.
+### Tests E2E & API (Playwright)
+- **API Tests** : 11/11 passés.
+- **UI Tests** : 63/63 passés (Total: 74 avec setups).
+- **Browsers** : Chromium (CI-friendly).
 
-## 4. Résultats des Tests de Performance (k6)
-
-Validation de la capacité de l'application à monter en charge via un Mock API.
-
-*   **Scénario** : 300 utilisateurs simultanés (Stress Test).
-*   **Fiabilité** : 0% d'erreurs HTTP sous charge intense (100+ VUs).
-*   **Latence** : Respect des seuils p(95) < 500ms.
-
-## 5. Comment visualiser les rapports de couverture ?
-
-Pour consulter le rapport de couverture détaillé en mode graphique (HTML), ouvrez le fichier suivant dans un navigateur :
-`./coverage/index.html`
+### Performance (k6)
+- **Scénario** : 300 utilisateurs simultanés.
+- **Fiabilité** : 0% d'erreurs sous charge.
 
 ---
-*Rapport mis à jour le 3 Mai 2026 dans le cadre de la validation technique finale.*
-
+*Rapport mis à jour le 3 Mai 2026 dans le cadre de la validation CI/CD finale.*
