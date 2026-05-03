@@ -32,7 +32,7 @@ export default defineConfig({
 
   use: {
     /* Base URL = Vite dev server */
-    baseURL: 'http://localhost:8080',
+    baseURL: 'http://127.0.0.1:8080',
 
     /* Collect traces on failure for debugging */
     trace: 'on-first-retry',
@@ -103,14 +103,16 @@ export default defineConfig({
   /* Start Vite dev server and API mock server automatically before tests */
   webServer: [
     {
-      command: 'npx vite --port 8080 --mode test',
-      url: 'http://localhost:8080',
+      command: process.env.CI 
+        ? 'npx vite preview --port 8080 --host 127.0.0.1' 
+        : 'npx vite --port 8080 --host 127.0.0.1 --mode test',
+      url: 'http://127.0.0.1:8080',
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
     },
     {
       command: 'node tests/api/mock-server.cjs',
-      url: 'http://localhost:3001',
+      url: 'http://127.0.0.1:3001',
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
     }
