@@ -2,7 +2,8 @@ const http = require('http');
 const PORT = 3001;
 
 /**
- * Robust Mock API Server with Real UUIDs for UI/API Tests
+ * Ultra-Faithful Supabase Mock Server
+ * Matches Supabase status codes and response structures exactly.
  */
 
 const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
@@ -13,38 +14,35 @@ let products = [
   { id: '22222222-2222-2222-2222-222222222222', name: 'Pain de Sucre', price: 15.0, stock: 200, category_id: 'cat-1', created_at: new Date().toISOString() }
 ];
 
-let categories = [
-  { id: 'cat-1', name: 'Sucre Granulé', slug: 'sucre-granule' },
-  { id: 'cat-2', name: 'Sucre en Morceaux', slug: 'sucre-morceaux' }
-];
-
 const server = http.createServer((req, res) => {
-  // Simple Logger for CI Debugging
   console.log(`[MOCK] ${req.method} ${req.url}`);
 
-  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'authorization, apikey, content-type, prefer, x-client-info');
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   res.setHeader('Content-Type', 'application/json');
 
   const authHeader = req.headers['authorization'] || '';
   const isAdmin = authHeader.includes('admin-token');
-  
-  // 1. Auth Endpoint
+
+  // 1. AUTH - Login
   if (req.url.includes('/auth/v1/token')) {
     let body = '';
     req.on('data', chunk => { body += chunk.toString(); });
     req.on('end', () => {
       const data = JSON.parse(body || '{}');
-      const role = data.email?.includes('admin') ? 'admin' : 'client';
+      
+      // Validation des identifiants (simulée)
+      if (!data.email || !data.password || data.password === 'wrong-password' || data.password === '') {
+        res.writeHead(400); // SUPABASE STANDARD FOR FAILURE
+        res.end(JSON.stringify({ error: 'invalid_grant', error_description: 'Invalid login credentials' }));
+        return;
+      }
+
+      const role = data.email.includes('admin') ? 'admin' : 'client';
       const userId = role === 'admin' ? ADMIN_ID : CLIENT_ID;
       
       res.writeHead(200);
@@ -52,67 +50,67 @@ const server = http.createServer((req, res) => {
         access_token: `valid-${role}-token`,
         token_type: 'bearer',
         expires_in: 3600,
+        refresh_token: 'mock-refresh-token',
         user: { 
-          id: userId, 
-          email: data.email || 'test@example.com', 
-          aud: 'authenticated',
-          role: 'authenticated',
+          id: userId, email: data.email, aud: 'authenticated', role: 'authenticated',
           user_metadata: { full_name: 'Test ' + role },
-          app_metadata: { provider: 'email' }
+          app_metadata: { provider: 'email' },
+          last_sign_in_at: new Date().toISOString()
         }
       }));
     });
     return;
   }
 
-  // 2. Profiles Endpoint
+  // 2. REST - Profiles
   if (req.url.includes('/rest/v1/profiles')) {
     const isRequestingAdmin = req.url.includes(ADMIN_ID) || isAdmin;
     const role = isRequestingAdmin ? 'admin' : 'client';
-    const userId = isRequestingAdmin ? ADMIN_ID : CLIENT_ID;
-
+    const profile = { user_id: isRequestingAdmin ? ADMIN_ID : CLIENT_ID, role: role, full_name: 'Test ' + role };
     res.writeHead(200);
-    const profile = { user_id: userId, role: role, full_name: 'Test ' + role, id: 'prof-' + userId };
-    
-    if (req.url.includes('single') || req.headers['prefer']?.includes('return=minimal')) {
-       res.end(JSON.stringify(profile));
-    } else {
-       res.end(JSON.stringify([profile]));
-    }
+    res.end(JSON.stringify(req.url.includes('single') ? profile : [profile]));
     return;
   }
 
-  // 3. Products
+  // 3. REST - Products
   if (req.url.includes('/rest/v1/products')) {
-    if (req.method === 'GET') {
-      res.writeHead(200);
-      res.end(JSON.stringify(products));
-    } else if (req.method === 'POST') {
+    if (req.method === 'POST') {
       if (!isAdmin) { res.writeHead(403); res.end(JSON.stringify({ error: 'Forbidden' })); return; }
-      res.writeHead(201);
-      res.end(JSON.stringify([{ id: 'new-id', name: 'Added' }]));
-    } else {
-      res.writeHead(204);
-      res.end();
+      let body = '';
+      req.on('data', chunk => { body += chunk.toString(); });
+      req.on('end', () => {
+        const data = JSON.parse(body || '{}');
+        res.writeHead(201); // SUCCESS INSERT
+        res.end(JSON.stringify([{ ...data, id: 'new-id-' + Date.now() }]));
+      });
+      return;
     }
+    res.writeHead(200);
+    res.end(JSON.stringify(products));
     return;
   }
 
-  // 4. Categories & Orders (Minimal)
-  if (req.url.includes('/rest/v1/categories')) {
-    res.writeHead(200); res.end(JSON.stringify(categories)); return;
-  }
+  // 4. REST - Orders
   if (req.url.includes('/rest/v1/orders')) {
+    if (req.method === 'POST') {
+      res.writeHead(201);
+      res.end(JSON.stringify([{ id: 'new-order', status: 'pending' }]));
+      return;
+    }
     res.writeHead(200); res.end(JSON.stringify([])); return;
   }
 
-  // 5. Health Check
+  // 5. REST - Categories
+  if (req.url.includes('/rest/v1/categories')) {
+    res.writeHead(200); res.end(JSON.stringify([{ id: 'cat-1', name: 'Sucre' }])); return;
+  }
+
+  // 6. Health
   if (req.url === '/' || req.url === '/health') {
     res.writeHead(200); res.end(JSON.stringify({ status: 'ok' })); return;
   }
 
-  res.writeHead(404);
-  res.end(JSON.stringify({ error: 'Not Found' }));
+  res.writeHead(404); res.end();
 });
 
 server.listen(PORT, '0.0.0.0', () => {
