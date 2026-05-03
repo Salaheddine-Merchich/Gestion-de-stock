@@ -122,6 +122,6 @@ const server = http.createServer((req, res) => {
   res.end(JSON.stringify({ error: 'Not Found', url: req.url }));
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`✅ Robust API Mock Server started on http://127.0.0.1:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Robust API Mock Server started on http://0.0.0.0:${PORT}`);
 });

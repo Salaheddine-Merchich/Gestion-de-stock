@@ -104,8 +104,8 @@ export default defineConfig({
   webServer: [
     {
       command: process.env.CI 
-        ? 'npx vite preview --port 8080 --host 127.0.0.1' 
-        : 'npx vite --port 8080 --host 127.0.0.1 --mode test',
+        ? 'npm run preview -- --port 8080 --host 0.0.0.0' 
+        : 'npm run dev -- --port 8080 --host 0.0.0.0 --mode test',
       url: 'http://127.0.0.1:8080',
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
