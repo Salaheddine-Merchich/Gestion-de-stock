@@ -118,6 +118,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 6. Health Check (Root)
+  if (req.url === '/' || req.url === '/health') {
+    res.writeHead(200);
+    res.end(JSON.stringify({ status: 'ok', message: 'Mock Server is running' }));
+    return;
+  }
+
   res.writeHead(404);
   res.end(JSON.stringify({ error: 'Not Found', url: req.url }));
 });

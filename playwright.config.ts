@@ -104,15 +104,9 @@ export default defineConfig({
   webServer: [
     {
       command: process.env.CI 
-        ? 'npm run preview -- --port 8080 --host 0.0.0.0' 
-        : 'npm run dev -- --port 8080 --host 0.0.0.0 --mode test',
+        ? 'npx concurrently "node tests/api/mock-server.cjs" "npm run preview -- --port 8080 --host 0.0.0.0"' 
+        : 'npx concurrently "node tests/api/mock-server.cjs" "npm run dev -- --port 8080 --host 0.0.0.0 --mode test"',
       url: 'http://127.0.0.1:8080',
-      reuseExistingServer: !process.env.CI,
-      timeout: 180_000,
-    },
-    {
-      command: 'node tests/api/mock-server.cjs',
-      url: 'http://127.0.0.1:3001',
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
     }
