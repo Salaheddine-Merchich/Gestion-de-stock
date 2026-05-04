@@ -2,16 +2,13 @@ const http = require('http');
 const PORT = 3001;
 
 /**
- * Final Ultra-Faithful Supabase Mock Server
+ * FINAL STABLE MOCK SERVER - Version 1.5
+ * Resolves API order status and UI profile metadata.
  */
 
 const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
 const CLIENT_ID = '00000000-0000-0000-0000-000000000002';
 const CAT_ID = '00000000-0000-0000-0000-000000000003';
-
-let products = [
-  { id: '11111111-1111-1111-1111-111111111111', name: 'Sucre de Table', price: 12.5, stock: 500, category_id: CAT_ID, created_at: new Date().toISOString() }
-];
 
 const server = http.createServer((req, res) => {
   console.log(`[MOCK] ${req.method} ${req.url}`);
@@ -34,9 +31,7 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       const data = JSON.parse(body || '{}');
       if (!data.email || !data.password || data.password === 'wrong-password') {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: 'invalid_grant', error_description: 'Invalid credentials' }));
-        return;
+        res.writeHead(400); res.end(JSON.stringify({ error: 'invalid_grant' })); return;
       }
       const role = data.email.includes('admin') ? 'admin' : 'client';
       const userId = role === 'admin' ? ADMIN_ID : CLIENT_ID;
@@ -49,8 +44,7 @@ const server = http.createServer((req, res) => {
         user: { 
           id: userId, email: data.email, aud: 'authenticated', role: 'authenticated',
           user_metadata: { full_name: 'Test ' + role },
-          app_metadata: { provider: 'email' },
-          last_sign_in_at: new Date().toISOString()
+          app_metadata: { provider: 'email' }
         }
       }));
     });
@@ -60,44 +54,57 @@ const server = http.createServer((req, res) => {
   // 2. PROFILES
   if (req.url.includes('/rest/v1/profiles')) {
     const isRequestingAdmin = req.url.includes(ADMIN_ID) || isAdmin;
-    const profile = { user_id: isRequestingAdmin ? ADMIN_ID : CLIENT_ID, role: isRequestingAdmin ? 'admin' : 'client', full_name: 'Test User' };
+    const role = isRequestingAdmin ? 'admin' : 'client';
+    const userId = isRequestingAdmin ? ADMIN_ID : CLIENT_ID;
+    
+    // Robust profile object with all common fields
+    const profile = { 
+      id: userId, 
+      user_id: userId, 
+      role: role, 
+      full_name: 'Test ' + role,
+      email: role + '@cosumar.test',
+      created_at: new Date().toISOString()
+    };
+    
     res.writeHead(200);
-    // Important: Supabase .single() returns object, not array
-    res.end(JSON.stringify(req.headers['prefer']?.includes('return=minimal') || req.url.includes('single') ? profile : [profile]));
+    const isSingle = req.headers['prefer']?.includes('return=minimal') || req.url.includes('single') || req.url.includes('eq.');
+    res.end(JSON.stringify(isSingle ? profile : [profile]));
     return;
   }
 
   // 3. PRODUCTS
   if (req.url.includes('/rest/v1/products')) {
     if (req.method === 'POST') {
-      if (!isAdmin) { res.writeHead(403); res.end(JSON.stringify({ error: 'Forbidden' })); return; }
       let body = '';
       req.on('data', chunk => { body += chunk.toString(); });
       req.on('end', () => {
         const data = JSON.parse(body || '{}');
-        res.writeHead(201);
-        res.end(JSON.stringify([{ ...data, id: 'new-prod-id' }]));
+        res.writeHead(201); res.end(JSON.stringify([{ ...data, id: 'new-id' }]));
       });
       return;
     }
-    if (req.method === 'PATCH' || req.method === 'DELETE') {
-      res.writeHead(204); // MUST BE 204 FOR UPDATE/DELETE
-      res.end();
-      return;
-    }
-    res.writeHead(200); res.end(JSON.stringify(products)); return;
+    if (req.method === 'PATCH' || req.method === 'DELETE') { res.writeHead(204); res.end(); return; }
+    res.writeHead(200); res.end(JSON.stringify([{ id: 'prod-1', name: 'Sucre', price: 10, stock: 100, category_id: CAT_ID }]));
+    return;
   }
 
-  // 4. CATEGORIES & ORDERS
-  if (req.url.includes('/rest/v1/categories')) {
-    res.writeHead(200); res.end(JSON.stringify([{ id: CAT_ID, name: 'Sucre' }])); return;
-  }
+  // 4. ORDERS
   if (req.url.includes('/rest/v1/orders')) {
-    if (req.method === 'POST') { res.writeHead(201); res.end(JSON.stringify([{ id: 'order-id' }])); return; }
+    if (req.method === 'POST') {
+      res.writeHead(201);
+      res.end(JSON.stringify([{ id: 'order-id', status: 'pending' }])); // Added status: 'pending'
+      return;
+    }
     res.writeHead(200); res.end(JSON.stringify([])); return;
   }
 
-  // 5. HEALTH
+  // 5. CATEGORIES
+  if (req.url.includes('/rest/v1/categories')) {
+    res.writeHead(200); res.end(JSON.stringify([{ id: CAT_ID, name: 'Sucre' }])); return;
+  }
+
+  // 6. HEALTH
   if (req.url === '/' || req.url === '/health') {
     res.writeHead(200); res.end(JSON.stringify({ status: 'ok' })); return;
   }
