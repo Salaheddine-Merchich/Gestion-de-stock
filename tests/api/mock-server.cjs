@@ -2,8 +2,8 @@ const http = require('http');
 const PORT = 3001;
 
 /**
- * FINAL STABLE MOCK SERVER - Version 1.5
- * Resolves API order status and UI profile metadata.
+ * FINAL SECURE MOCK SERVER - Version 1.6
+ * Fixes RBAC security check for products and adds verbose logging.
  */
 
 const ADMIN_ID = '00000000-0000-0000-0000-000000000001';
@@ -11,7 +11,10 @@ const CLIENT_ID = '00000000-0000-0000-0000-000000000002';
 const CAT_ID = '00000000-0000-0000-0000-000000000003';
 
 const server = http.createServer((req, res) => {
-  console.log(`[MOCK] ${req.method} ${req.url}`);
+  const authHeader = req.headers['authorization'] || '';
+  const isAdmin = authHeader.toLowerCase().includes('admin-token');
+  
+  console.log(`[MOCK] ${req.method} ${req.url} | Auth: ${authHeader ? 'Present' : 'None'} | IsAdmin: ${isAdmin}`);
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
@@ -20,9 +23,6 @@ const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   res.setHeader('Content-Type', 'application/json');
-
-  const authHeader = req.headers['authorization'] || '';
-  const isAdmin = authHeader.includes('admin-token');
 
   // 1. AUTH
   if (req.url.includes('/auth/v1/token')) {
@@ -57,14 +57,12 @@ const server = http.createServer((req, res) => {
     const role = isRequestingAdmin ? 'admin' : 'client';
     const userId = isRequestingAdmin ? ADMIN_ID : CLIENT_ID;
     
-    // Robust profile object with all common fields
     const profile = { 
       id: userId, 
       user_id: userId, 
       role: role, 
       full_name: 'Test ' + role,
-      email: role + '@cosumar.test',
-      created_at: new Date().toISOString()
+      email: role + '@cosumar.test'
     };
     
     res.writeHead(200);
@@ -76,15 +74,24 @@ const server = http.createServer((req, res) => {
   // 3. PRODUCTS
   if (req.url.includes('/rest/v1/products')) {
     if (req.method === 'POST') {
+      if (!isAdmin) { 
+        console.log(`[MOCK] Blocked non-admin POST to products`);
+        res.writeHead(403); 
+        res.end(JSON.stringify({ error: 'Unauthorized', message: 'Permission denied' })); 
+        return; 
+      }
       let body = '';
       req.on('data', chunk => { body += chunk.toString(); });
       req.on('end', () => {
         const data = JSON.parse(body || '{}');
-        res.writeHead(201); res.end(JSON.stringify([{ ...data, id: 'new-id' }]));
+        res.writeHead(201); res.end(JSON.stringify([{ ...data, id: 'new-prod-id' }]));
       });
       return;
     }
-    if (req.method === 'PATCH' || req.method === 'DELETE') { res.writeHead(204); res.end(); return; }
+    if (req.method === 'PATCH' || req.method === 'DELETE') { 
+        if (!isAdmin) { res.writeHead(403); res.end(); return; }
+        res.writeHead(204); res.end(); return; 
+    }
     res.writeHead(200); res.end(JSON.stringify([{ id: 'prod-1', name: 'Sucre', price: 10, stock: 100, category_id: CAT_ID }]));
     return;
   }
@@ -92,9 +99,7 @@ const server = http.createServer((req, res) => {
   // 4. ORDERS
   if (req.url.includes('/rest/v1/orders')) {
     if (req.method === 'POST') {
-      res.writeHead(201);
-      res.end(JSON.stringify([{ id: 'order-id', status: 'pending' }])); // Added status: 'pending'
-      return;
+      res.writeHead(201); res.end(JSON.stringify([{ id: 'order-id', status: 'pending' }])); return;
     }
     res.writeHead(200); res.end(JSON.stringify([])); return;
   }
